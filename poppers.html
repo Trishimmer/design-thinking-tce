@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poppers Animation</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+        .poppers {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: #ff4081;
+            animation: popAnimation 2s infinite;
+        }
+        @keyframes popAnimation {
+            0% {
+                transform: translateX(-200px);
+                opacity: 1;
+            }
+            50% {
+                transform: translateX(200px);
+                opacity: 0.7;
+            }
+            100% {
+                transform: translateX(-200px);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="poppers" style="top: 30%;"></div>
+    <div class="poppers" style="top: 50%;"></div>
+    <div class="poppers" style="top: 70%;"></div>
+    <script>
+        // Randomize initial position and animation delay for each popper
+        const poppers = document.querySelectorAll('.poppers');
+        poppers.forEach((popper, index) => {
+            popper.style.animationDelay = `${Math.random() * 2}s`; // Random delay for each popper
+        });
+    </script>
+</body>
+</html>
