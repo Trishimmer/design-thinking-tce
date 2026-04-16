@@ -22,30 +22,30 @@ def test_valid_ph(client):
         'potassium': 40,
         'temperature': 25.0,
         'humidity': 70.0,
-        'ph': 7.0,
-        'rainfall': 199.0
+        'ph': 14.0,
+        'rainfall': 300.0
     }, content_type='application/x-www-form-urlencoded')
     assert response.status_code == 200
     assert b'crop' in response.data
 
 
 def test_ph_out_of_upper_bound(client):
-    """Test with pH greater than 10."""
+    """Test with pH greater than 14."""
     response = client.post('/predict_crop', data={
         'nitrogen': 50,
         'phosphorus': 20,
         'potassium': 30,
         'temperature': 25.0,
         'humidity': 70.0,
-        'ph': 11.0,
-        'rainfall': 199.0
+        'ph': 15.0,
+        'rainfall': 300.0
     }, content_type='application/x-www-form-urlencoded')
     assert response.status_code == 400
     assert b'Invalid pH value' in response.data
 
 
 def test_ph_out_of_lower_bound(client):
-    """Test with pH less than 1."""
+    """Test with pH less than 0."""
     response = client.post('/predict_crop', data={
         'nitrogen': 50,
         'phosphorus': 20,
@@ -53,7 +53,7 @@ def test_ph_out_of_lower_bound(client):
         'temperature': 25.0,
         'humidity': 70.0,
         'ph': -2.0,
-        'rainfall': 199.0
+        'rainfall': 300.0
     }, content_type='application/x-www-form-urlencoded')
     assert response.status_code == 400
     assert b'Invalid pH value' in response.data
@@ -68,10 +68,11 @@ def test_invalid_ph_type(client):
         'temperature': 25.0,
         'humidity': 70.0,
         'ph': 'acidic',
-        'rainfall': 199.0
+        'rainfall': 300.0
     }, content_type='application/x-www-form-urlencoded')
     assert response.status_code == 400
     assert b'Invalid input type' in response.data
+    assert b'Please check the values you entered' in response.data
 
 
 def test_multiple_validation_errors(client):
@@ -80,16 +81,31 @@ def test_multiple_validation_errors(client):
         'nitrogen': -10,  # Invalid
         'phosphorus': 30,
         'potassium': 40,
-        'temperature': 40.0,  # Invalid
+        'temperature': 60.0,  # Invalid
         'humidity': 70.0,
         'ph': 15.0,  # Invalid
-        'rainfall': -5.0  # Invalid
+        'rainfall': 400.0  # Invalid
     }, content_type='application/x-www-form-urlencoded')
     assert response.status_code == 400
     assert b'Invalid nitrogen value' in response.data
     assert b'Invalid temperature value' in response.data
     assert b'Invalid pH value' in response.data
     assert b'Invalid rainfall value' in response.data
+
+
+def test_rainfall_upper_bound(client):
+    """Test that rainfall up to the new upper bound is accepted."""
+    response = client.post('/predict_crop', data={
+        'nitrogen': 60,
+        'phosphorus': 30,
+        'potassium': 40,
+        'temperature': 25.0,
+        'humidity': 70.0,
+        'ph': 7.0,
+        'rainfall': 300.0
+    }, content_type='application/x-www-form-urlencoded')
+    assert response.status_code == 200
+    assert b'crop' in response.data
 
 
 # Add a custom pytest hook to display "All test cases passed"

@@ -1,8 +1,18 @@
 from flask import Flask, render_template, request, jsonify
+import pandas as pd
 import pickle
-import numpy as np
 
 app = Flask(__name__)
+
+INPUT_LIMITS = {
+    'nitrogen': (0, 140, 'Nitrogen'),
+    'phosphorus': (0, 145, 'Phosphorus'),
+    'potassium': (0, 205, 'Potassium'),
+    'temperature': (0, 50, 'Temperature'),
+    'humidity': (0, 100, 'Humidity'),
+    'ph': (0, 14, 'pH'),
+    'rainfall': (0, 300, 'Rainfall'),
+}
 
 # Load the trained model and label encoder
 with open('crop_model.pkl', 'rb') as f:
@@ -29,27 +39,39 @@ def predict_crop():
 
         # Validate input values
         errors = []
-        if nitrogen < 0 or nitrogen > 140:
-            errors.append("Invalid nitrogen value. Please provide a value between 0 and 140.")
-        if phosphorus <= 0:
-            errors.append("Invalid phosphorus value. Please provide a positive value.")
-        if potassium <= 0:
-            errors.append("Invalid potassium value. Please provide a positive value.")
-        if temperature < 0 or temperature > 37:
-            errors.append("Invalid temperature value. Please provide a value between 0 and 37.")
-        if humidity <= 0:
-            errors.append("Invalid humidity value. Please provide a positive value.")
-        if ph < 1.0 or ph > 10.0:
-            errors.append("Invalid pH value. Please provide a value between 1 and 10.")
-        if rainfall < 0 or rainfall > 199:
-            errors.append("Invalid rainfall value. Please provide a value between 0 and 199.")
+        input_values = {
+            'nitrogen': nitrogen,
+            'phosphorus': phosphorus,
+            'potassium': potassium,
+            'temperature': temperature,
+            'humidity': humidity,
+            'ph': ph,
+            'rainfall': rainfall,
+        }
+
+        for field, value in input_values.items():
+            min_value, max_value, label = INPUT_LIMITS[field]
+            if value < min_value or value > max_value:
+                errors.append(
+                    f"Invalid {label} value. Please provide a value between {min_value} and {max_value}."
+                )
 
         # If there are errors, return them
         if errors:
-            return jsonify({"errors": errors}), 400
+            return render_template('error.html', errors=errors), 400
 
         # Make prediction using the model
-        features = np.array([[nitrogen, phosphorus, potassium, temperature, humidity, ph, rainfall]])
+        features = pd.DataFrame([
+            {
+                'NITROGEN': nitrogen,
+                'PHOSPHORUS': phosphorus,
+                'POTASSIUM': potassium,
+                'TEMPERATURE': temperature,
+                'HUMIDITY': humidity,
+                'PH': ph,
+                'RAINFALL': rainfall,
+            }
+        ])
         predicted_crop = model.predict(features)
 
         # Convert the numerical prediction back to crop label
@@ -57,9 +79,15 @@ def predict_crop():
 
         return render_template('result.html', crop=crop_name)
     except ValueError:
-        return jsonify({"error": "Invalid input type. Please provide numeric values."}), 400
+        return render_template(
+            'error.html',
+            errors=["Invalid input type. Please provide numeric values for all fields."]
+        ), 400
     except Exception as e:
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+        return render_template(
+            'error.html',
+            errors=[f"An error occurred: {str(e)}"]
+        ), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

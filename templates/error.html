@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Input Error</title>
+  <style>
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: linear-gradient(135deg, #1f4037 0%, #99f2c8 100%);
+      color: #1f2937;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 720px;
+      background: rgba(255, 255, 255, 0.96);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+      padding: 36px 28px;
+      animation: fadeIn 0.45s ease;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #fee2e2;
+      color: #991b1b;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: #0f172a;
+      margin-bottom: 10px;
+    }
+
+    p {
+      color: #475569;
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }
+
+    .error-list {
+      list-style: none;
+      margin: 0 0 28px;
+      padding: 0;
+      display: grid;
+      gap: 12px;
+    }
+
+    .error-list li {
+      padding: 14px 16px;
+      border-left: 5px solid #dc2626;
+      background: #fef2f2;
+      border-radius: 12px;
+      color: #7f1d1d;
+      font-weight: 600;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    a {
+      display: inline-block;
+      padding: 12px 20px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 700;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .primary {
+      background: linear-gradient(90deg, #185a9d, #43cea2);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(24, 90, 157, 0.24);
+    }
+
+    .secondary {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    a:hover {
+      transform: translateY(-1px);
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        padding: 28px 20px;
+      }
+
+      h1 {
+        font-size: 1.6rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="badge">Input error</div>
+    <h1>Please check the values you entered</h1>
+    <p>The crop prediction form needs valid numeric values within the accepted ranges below:</p>
+    <ul class="error-list">
+      {% for error in errors %}
+      <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+    <div class="actions">
+      <a class="primary" href="/">Back to form</a>
+      <a class="secondary" href="/">Review inputs</a>
+    </div>
+  </main>
+</body>
+</html>
