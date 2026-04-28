@@ -1,17 +1,17 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 import pandas as pd
 import pickle
 
 app = Flask(__name__)
 
 INPUT_LIMITS = {
-    'nitrogen': (0, 140, 'Nitrogen'),
-    'phosphorus': (0, 145, 'Phosphorus'),
-    'potassium': (0, 205, 'Potassium'),
-    'temperature': (0, 50, 'Temperature'),
-    'humidity': (0, 100, 'Humidity'),
+    'nitrogen': (0, 140, 'nitrogen'),
+    'phosphorus': (0, 145, 'phosphorus'),
+    'potassium': (0, 205, 'potassium'),
+    'temperature': (0, 50, 'temperature'),
+    'humidity': (0, 100, 'humidity'),
     'ph': (0, 14, 'pH'),
-    'rainfall': (0, 300, 'Rainfall'),
+    'rainfall': (0, 300, 'rainfall'),
 }
 
 # Load the trained model and label encoder
@@ -28,48 +28,48 @@ def index():
 @app.route('/predict_crop', methods=['POST'])
 def predict_crop():
     try:
-        # Get form data
-        nitrogen = float(request.form['nitrogen'])
-        phosphorus = float(request.form['phosphorus'])
-        potassium = float(request.form['potassium'])
-        temperature = float(request.form['temperature'])
-        humidity = float(request.form['humidity'])
-        ph = float(request.form['ph'])
-        rainfall = float(request.form['rainfall'])
-
-        # Validate input values
+        # Parse and validate all fields first so every bad input lands on error page.
+        input_values = {}
         errors = []
-        input_values = {
-            'nitrogen': nitrogen,
-            'phosphorus': phosphorus,
-            'potassium': potassium,
-            'temperature': temperature,
-            'humidity': humidity,
-            'ph': ph,
-            'rainfall': rainfall,
-        }
+        invalid_type_detected = False
 
-        for field, value in input_values.items():
-            min_value, max_value, label = INPUT_LIMITS[field]
+        for field, (_, _, label) in INPUT_LIMITS.items():
+            raw_value = request.form.get(field, '').strip()
+            if raw_value == '':
+                errors.append(f"{label} is required.")
+                continue
+
+            try:
+                value = float(raw_value)
+            except ValueError:
+                invalid_type_detected = True
+                errors.append(f"Invalid {label} value. Please provide a numeric value.")
+                continue
+
+            min_value, max_value, _ = INPUT_LIMITS[field]
             if value < min_value or value > max_value:
                 errors.append(
                     f"Invalid {label} value. Please provide a value between {min_value} and {max_value}."
                 )
+            else:
+                input_values[field] = value
 
-        # If there are errors, return them
+        if invalid_type_detected:
+            errors.insert(0, "Invalid input type. Please provide numeric values for all fields.")
+
         if errors:
             return render_template('error.html', errors=errors), 400
 
         # Make prediction using the model
         features = pd.DataFrame([
             {
-                'NITROGEN': nitrogen,
-                'PHOSPHORUS': phosphorus,
-                'POTASSIUM': potassium,
-                'TEMPERATURE': temperature,
-                'HUMIDITY': humidity,
-                'PH': ph,
-                'RAINFALL': rainfall,
+                'NITROGEN': input_values['nitrogen'],
+                'PHOSPHORUS': input_values['phosphorus'],
+                'POTASSIUM': input_values['potassium'],
+                'TEMPERATURE': input_values['temperature'],
+                'HUMIDITY': input_values['humidity'],
+                'PH': input_values['ph'],
+                'RAINFALL': input_values['rainfall'],
             }
         ])
         predicted_crop = model.predict(features)
@@ -78,11 +78,6 @@ def predict_crop():
         crop_name = le.inverse_transform(predicted_crop)[0]
 
         return render_template('result.html', crop=crop_name)
-    except ValueError:
-        return render_template(
-            'error.html',
-            errors=["Invalid input type. Please provide numeric values for all fields."]
-        ), 400
     except Exception as e:
         return render_template(
             'error.html',
