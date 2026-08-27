@@ -69,8 +69,8 @@ def fetch_sentinel2_red_nir(lat, lon, start_date=None, end_date=None, buffer_m=5
 
     initialize_ee()
 
+    import datetime
     if start_date is None or end_date is None:
-        import datetime
         end = datetime.date.today()
         start = end - datetime.timedelta(days=30)
         start_date = start.isoformat()
@@ -79,12 +79,28 @@ def fetch_sentinel2_red_nir(lat, lon, start_date=None, end_date=None, buffer_m=5
     point = ee.Geometry.Point([float(lon), float(lat)])
     region = point.buffer(buffer_m).bounds()
 
-    collection = (
-        ee.ImageCollection('COPERNICUS/S2_SR')
-        .filterBounds(region)
-        .filterDate(start_date, end_date)
-        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 30))
-    )
+    def build_collection(sd, ed):
+        return (
+            ee.ImageCollection('COPERNICUS/S2_SR')
+            .filterBounds(region)
+            .filterDate(sd, ed)
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 30))
+        )
+
+    collection = build_collection(start_date, end_date)
+    count = collection.size().getInfo()
+
+    # Fallback: widen to 180 days if nothing found in the default/requested window
+    if count == 0:
+        wide_start = (datetime.date.today() - datetime.timedelta(days=180)).isoformat()
+        collection = build_collection(wide_start, end_date)
+        count = collection.size().getInfo()
+
+    if count == 0:
+        raise RuntimeError(
+            f'No cloud-free Sentinel-2 imagery found near ({lat}, {lon}) in the last 180 days. '
+            'This location may be over open water or persistently cloudy — try a different point or date range.'
+        )
 
     image = collection.median().select(['B4', 'B8'])
 
@@ -105,7 +121,6 @@ def fetch_sentinel2_red_nir(lat, lon, start_date=None, end_date=None, buffer_m=5
     local_path = None
     try:
         with zipfile.ZipFile(tmp.name, 'r') as z:
-            # Extract every band tif, keyed by band name (B4, B8, ...)
             band_files = {}
             for name in z.namelist():
                 if name.lower().endswith(('.tif', '.tiff')):
@@ -119,7 +134,6 @@ def fetch_sentinel2_red_nir(lat, lon, start_date=None, end_date=None, buffer_m=5
             if 'B4' not in band_files or 'B8' not in band_files:
                 raise RuntimeError(f'Expected B4 and B8 tif files in zip, found: {list(band_files.keys())}')
 
-            # Stack B4 (Red) and B8 (NIR) into a single 2-band GeoTIFF
             with rasterio.open(band_files['B4']) as red_src:
                 red_data = red_src.read(1)
                 profile = red_src.profile.copy()
@@ -134,7 +148,6 @@ def fetch_sentinel2_red_nir(lat, lon, start_date=None, end_date=None, buffer_m=5
 
             local_path = merged_path
 
-            # Clean up the individual single-band files
             for f in band_files.values():
                 try:
                     os.remove(f)

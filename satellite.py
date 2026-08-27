@@ -1,6 +1,9 @@
 import os
 import uuid
 import numpy as np
+
+import matplotlib
+matplotlib.use('Agg')  # non-interactive backend, safe for Flask's threaded dev server
 import matplotlib.pyplot as plt
 
 try:

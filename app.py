@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use('Agg')  # must be set before anything imports matplotlib.pyplot
+
 from flask import Flask, render_template, request
 import pandas as pd
 import pickle
