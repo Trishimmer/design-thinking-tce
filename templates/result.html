@@ -116,6 +116,17 @@
   <div class="container">
     <h1>🌾 Recommended Crop</h1>
     <p class="result-text">The most suitable crop for your conditions is: <strong>{{ crop }}</strong></p>
+    {% if ndvi_mean is not none %}
+    <div style="margin-top:18px;text-align:left;">
+      <h2 style="font-size:1.1rem;color:#0d2c54;margin-bottom:8px">NDVI Summary</h2>
+      <p style="color:#475569;margin-bottom:10px">Mean NDVI: <strong style="color:#2e7d32">{{ '%.3f'|format(ndvi_mean) }}</strong> &nbsp; Std: <strong>{{ '%.3f'|format(ndvi_std) }}</strong></p>
+      {% if ndvi_image %}
+      <div style="text-align:center;margin-top:10px">
+        <img src="/{{ ndvi_image }}" alt="NDVI" style="max-width:100%;border-radius:12px;box-shadow:0 10px 20px rgba(0,0,0,0.15)"/>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
     <a href="/">⬅️ Go Back</a>
   </div>
 </body>

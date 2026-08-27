@@ -197,7 +197,7 @@
     <!-- 🌱 Form Container -->
     <div class="container">
       <h1>🌾 Crop Prediction System</h1>
-      <form action="/predict_crop" method="POST" id="cropForm" novalidate>
+      <form action="/predict_crop" method="POST" id="cropForm" novalidate enctype="multipart/form-data">
         <label for="nitrogen">Nitrogen (N):</label>
         <input type="number" name="nitrogen" id="nitrogen" placeholder="0 - 140" />
 
@@ -219,6 +219,16 @@
         <label for="rainfall">Rainfall (mm):</label>
         <input type="number" name="rainfall" id="rainfall" placeholder="0 - 300" />
 
+        <label for="sat_image">Upload satellite GeoTIFF (Red + NIR bands):</label>
+        <input type="file" name="sat_image" id="sat_image" accept=".tif,.tiff" />
+        <small style="display:block;margin-bottom:20px;color:#6b7280">Optional: provide a GeoTIFF containing Red and NIR bands to compute NDVI.</small>
+        
+        <label for="latitude">Latitude (optional):</label>
+        <input type="number" step="0.000001" name="latitude" id="latitude" placeholder="e.g. 9.8782" />
+
+        <label for="longitude">Longitude (optional):</label>
+        <input type="number" step="0.000001" name="longitude" id="longitude" placeholder="e.g. 78.0547" />
+
         <!-- 📍 Button to Autofill from Weather -->
         <button type="button" onclick="fetchWeather()" style="margin-bottom: 20px; background-color: #4caf50;">
           📍 Use Current Weather
@@ -227,10 +237,6 @@
         <!-- 🌱 Predict Button -->
         <button type="submit">🌱 Predict Crop</button>
       </form>
-      <footer>
-        &copy; 2025 Crop Prediction Project.
-        <a href="#"></a>.
-      </footer>
     </div>
 
     <!-- 🚀 Script for Weather Autofill and Submit Delay -->

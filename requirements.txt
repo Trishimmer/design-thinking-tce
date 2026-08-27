@@ -1,1 +1,8 @@
 scikit-learn
+pandas
+flask
+numpy
+rasterio
+matplotlib
+earthengine-api
+requests

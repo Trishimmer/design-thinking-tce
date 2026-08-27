@@ -1,8 +1,17 @@
 from flask import Flask, render_template, request
 import pandas as pd
 import pickle
+import os
+import uuid
+from werkzeug.utils import secure_filename
+
+import satellite
+import gee_utils
 
 app = Flask(__name__)
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs('static', exist_ok=True)
 
 INPUT_LIMITS = {
     'nitrogen': (0, 140, 'nitrogen'),
@@ -20,6 +29,27 @@ with open('crop_model.pkl', 'rb') as f:
 
 with open('label_encoder.pkl', 'rb') as f:
     le = pickle.load(f)
+
+# Attempt to initialize Google Earth Engine for the Flask process so request handlers
+# can fetch tiles. Use the static project as requested.
+gee_project = 'crop-recommendation-506706'
+try:
+    gee_utils.initialize_ee(gee_project)
+    print(f'Google Earth Engine initialized for project: {gee_project}')
+except Exception as e:
+    # Do not crash the app; surface a clear message when fetch is attempted.
+    print('Warning: Earth Engine initialization failed at startup:', str(e))
+
+
+@app.route('/ee_status')
+def ee_status():
+    """Return basic Earth Engine initialization info: project and service-account (if any)."""
+    sa = gee_utils.get_service_account_email()
+    return {
+        'project': gee_project,
+        'service_account': sa,
+        'note': 'Ensure the active identity (service account or interactive user) has permission on this project.'
+    }
 
 @app.route('/')
 def index():
@@ -60,6 +90,41 @@ def predict_crop():
         if errors:
             return render_template('error.html', errors=errors), 400
 
+        # Handle optional satellite image upload (GeoTIFF with Red+NIR bands)
+        ndvi_info = None
+        sat_file = request.files.get('sat_image')
+        if sat_file and sat_file.filename != '':
+            filename = secure_filename(sat_file.filename)
+            save_path = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4().hex}_{filename}")
+            sat_file.save(save_path)
+            try:
+                ndvi_info = satellite.compute_ndvi_from_geotiff(save_path, out_dir='static')
+            except Exception as e:
+                # surface the satellite processing error to the user
+                return render_template('error.html', errors=[f"Satellite image processing error: {str(e)}"]), 400
+            finally:
+                try:
+                    os.remove(save_path)
+                except Exception:
+                    pass
+
+        # If no uploaded file, but latitude/longitude provided, try to fetch from Earth Engine
+        if ndvi_info is None:
+            lat = request.form.get('latitude', '').strip()
+            lon = request.form.get('longitude', '').strip()
+            if lat and lon:
+                try:
+                    fetched = gee_utils.fetch_sentinel2_red_nir(lat, lon, out_dir='static')
+                    tif_path = fetched.get('path')
+                    ndvi_info = satellite.compute_ndvi_from_geotiff(tif_path, out_dir='static')
+                    # remove the downloaded tif after processing
+                    try:
+                        os.remove(tif_path)
+                    except Exception:
+                        pass
+                except Exception as e:
+                    return render_template('error.html', errors=[f"Earth Engine fetch error: {str(e)}"]), 400
+
         # Make prediction using the model
         features = pd.DataFrame([
             {
@@ -77,7 +142,13 @@ def predict_crop():
         # Convert the numerical prediction back to crop label
         crop_name = le.inverse_transform(predicted_crop)[0]
 
-        return render_template('result.html', crop=crop_name)
+        return render_template(
+            'result.html',
+            crop=crop_name,
+            ndvi_mean=(ndvi_info['mean'] if ndvi_info else None),
+            ndvi_std=(ndvi_info['std'] if ndvi_info else None),
+            ndvi_image=(ndvi_info['image'] if ndvi_info else None),
+        )
     except Exception as e:
         return render_template(
             'error.html',

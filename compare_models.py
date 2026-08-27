@@ -5,7 +5,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 import pickle
 
 # Load dataset and remove duplicate rows to avoid train/test leakage.
@@ -78,6 +78,31 @@ scoring = {
 
 cv_results_summary = {}
 
+
+def print_metrics_table(title, y_true, y_pred):
+    """Print ensemble metrics with metrics on the rows and class columns on the x axis."""
+    report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
+    class_labels = [label for label in report.keys() if label not in {'accuracy', 'macro avg', 'weighted avg'}]
+    display_columns = ['Range', 'Squeeze', 'Breakout', 'Macro Avg']
+
+    table = pd.DataFrame(index=['Accuracy', 'Precision', 'Recall', 'F1 Score'], columns=display_columns)
+
+    for display_name, class_label in zip(display_columns[:-1], class_labels[:3]):
+        class_metrics = report[class_label]
+        table.loc['Accuracy', display_name] = '—'
+        table.loc['Precision', display_name] = class_metrics['precision']
+        table.loc['Recall', display_name] = class_metrics['recall']
+        table.loc['F1 Score', display_name] = class_metrics['f1-score']
+
+    macro_avg = report['macro avg']
+    table.loc['Accuracy', 'Macro Avg'] = report['accuracy']
+    table.loc['Precision', 'Macro Avg'] = macro_avg['precision']
+    table.loc['Recall', 'Macro Avg'] = macro_avg['recall']
+    table.loc['F1 Score', 'Macro Avg'] = macro_avg['f1-score']
+
+    print(f"\n{title}")
+    print(table.to_string(float_format=lambda value: f"{value:.4f}" if isinstance(value, (int, float)) else str(value)))
+
 # Evaluate each model with cross-validation first.
 for name, model in models.items():
     cv_scores = cross_validate(model, X, y_encoded, cv=cv, scoring=scoring, n_jobs=-1)
@@ -106,11 +131,18 @@ for name, model in models.items():
         'f1': f1_score(y_test, predictions, average='macro', zero_division=0)
     }
 
-    print(f"\n{name} Holdout Results:")
-    print(f"Accuracy : {holdout_results[name]['accuracy']:.4f}")
-    print(f"Precision: {holdout_results[name]['precision']:.4f}")
-    print(f"Recall   : {holdout_results[name]['recall']:.4f}")
-    print(f"F1 Score : {holdout_results[name]['f1']:.4f}")
+    if name == "Voting Ensemble (KNN + RF + LR)":
+        print_metrics_table(
+            "Voting Ensemble Holdout Metrics",
+            y_test,
+            predictions,
+        )
+    else:
+        print(f"\n{name} Holdout Results:")
+        print(f"Accuracy : {holdout_results[name]['accuracy']:.4f}")
+        print(f"Precision: {holdout_results[name]['precision']:.4f}")
+        print(f"Recall   : {holdout_results[name]['recall']:.4f}")
+        print(f"F1 Score : {holdout_results[name]['f1']:.4f}")
 
 # Save the best model using CV accuracy (more robust than one split).
 best_model_name = max(cv_results_summary, key=lambda model_name: cv_results_summary[model_name]['accuracy'])
