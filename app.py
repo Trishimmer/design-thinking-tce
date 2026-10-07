@@ -26,6 +26,33 @@ INPUT_LIMITS = {
     'rainfall': (0, 300, 'rainfall'),
 }
 
+
+def get_ndvi_assessment(ndvi_mean):
+    """Return a generic vegetation-condition assessment from mean NDVI."""
+    score = round(max(0, min(100, ((ndvi_mean + 1) / 2) * 100)))
+
+    if ndvi_mean < 0.2:
+        label = 'Low'
+        explanation = (
+            'Existing vegetation activity is low. The area may contain bare soil, '
+            'water, sparse vegetation, or stressed plants.'
+        )
+    elif ndvi_mean < 0.5:
+        label = 'Moderate'
+        explanation = 'Existing vegetation activity is moderate and may indicate sparse or developing vegetation.'
+    elif ndvi_mean < 0.7:
+        label = 'Good'
+        explanation = 'Existing vegetation activity is good and indicates established vegetation.'
+    else:
+        label = 'High'
+        explanation = 'Existing vegetation activity is high and indicates dense, healthy vegetation.'
+
+    return {
+        'score': score,
+        'label': label,
+        'explanation': explanation,
+    }
+
 # Load the trained model and label encoder
 with open('crop_model.pkl', 'rb') as f:
     model = pickle.load(f)
@@ -144,6 +171,7 @@ def predict_crop():
 
         # Convert the numerical prediction back to crop label
         crop_name = le.inverse_transform(predicted_crop)[0]
+        ndvi_assessment = get_ndvi_assessment(ndvi_info['mean']) if ndvi_info else None
 
         return render_template(
             'result.html',
@@ -151,6 +179,7 @@ def predict_crop():
             ndvi_mean=(ndvi_info['mean'] if ndvi_info else None),
             ndvi_std=(ndvi_info['std'] if ndvi_info else None),
             ndvi_image=(ndvi_info['image'] if ndvi_info else None),
+            ndvi_assessment=ndvi_assessment,
         )
     except Exception as e:
         return render_template(

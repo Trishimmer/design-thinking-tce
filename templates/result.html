@@ -120,6 +120,12 @@
     <div style="margin-top:18px;text-align:left;">
       <h2 style="font-size:1.1rem;color:#0d2c54;margin-bottom:8px">NDVI Summary</h2>
       <p style="color:#475569;margin-bottom:10px">Mean NDVI: <strong style="color:#2e7d32">{{ '%.3f'|format(ndvi_mean) }}</strong> &nbsp; Std: <strong>{{ '%.3f'|format(ndvi_std) }}</strong></p>
+      {% if ndvi_assessment %}
+      <p style="color:#475569;margin-bottom:6px">Vegetation condition: <strong style="color:#2e7d32">{{ ndvi_assessment.label }}</strong></p>
+      <p style="color:#475569;margin-bottom:6px">Field health score: <strong style="color:#2e7d32">{{ ndvi_assessment.score }}/100</strong></p>
+      <p style="color:#475569;margin-bottom:10px">{{ ndvi_assessment.explanation }}</p>
+      <small style="display:block;color:#64748b">This is a general vegetation-condition score, not a crop-specific suitability guarantee. NDVI alone cannot identify the crop or account for soil, weather, water, or growth stage.</small>
+      {% endif %}
       {% if ndvi_image %}
       <div style="text-align:center;margin-top:10px">
         <img src="/{{ ndvi_image }}" alt="NDVI" style="max-width:100%;border-radius:12px;box-shadow:0 10px 20px rgba(0,0,0,0.15)"/>

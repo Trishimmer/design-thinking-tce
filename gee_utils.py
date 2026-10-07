@@ -43,7 +43,6 @@ def initialize_ee(project=None):
         except Exception as e:
             last_err = e
 
-    # 3) Interactive auth, same project preserved
     try:
         ee.Authenticate()
         ee.Initialize(project=project) if project else ee.Initialize()
