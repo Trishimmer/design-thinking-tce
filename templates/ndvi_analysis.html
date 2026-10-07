@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historical NDVI Analysis</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; padding: 32px 16px; font-family: "Segoe UI", sans-serif; color: #17324d; background: linear-gradient(135deg, #dff7ef, #e8f0fb); }
+    .card { max-width: 620px; margin: 0 auto; padding: 34px 30px; background: rgba(255,255,255,.96); border-radius: 18px; box-shadow: 0 18px 42px rgba(20,55,80,.18); }
+    h1 { margin: 0 0 10px; color: #0d2c54; }
+    p { color: #526579; line-height: 1.55; }
+    label { display: block; margin: 18px 0 6px; font-weight: 600; }
+    input { width: 100%; padding: 12px 14px; border: 1px solid #b8c7d5; border-radius: 9px; font-size: 1rem; }
+    button, a { display: block; width: 100%; margin-top: 22px; padding: 14px; border: 0; border-radius: 10px; text-align: center; text-decoration: none; font-size: 1rem; font-weight: 700; cursor: pointer; }
+    button { color: white; background: linear-gradient(90deg, #185a9d, #2e9b78); }
+    a { color: #17324d; background: #e5edf4; }
+    small { display: block; margin-top: 8px; color: #64748b; line-height: 1.45; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Historical NDVI Analysis</h1>
+    <p>Enter a field location to compare Sentinel-2 vegetation conditions across the current period and four earlier three-month checkpoints.</p>
+    <form action="{{ url_for('ndvi_analysis') }}" method="POST">
+      <label for="latitude">Latitude</label>
+      <input id="latitude" name="latitude" type="number" step="0.000001" min="-90" max="90" required placeholder="e.g. 9.8782">
+
+      <label for="longitude">Longitude</label>
+      <input id="longitude" name="longitude" type="number" step="0.000001" min="-180" max="180" required placeholder="e.g. 78.0547">
+
+      <label for="crop_name">Crop name (optional)</label>
+      <input id="crop_name" name="crop_name" type="text" maxlength="80" placeholder="e.g. rice">
+      <small>The crop name is shown for context. NDVI trends alone cannot diagnose a specific disease or identify the crop.</small>
+
+      <button type="submit">Run NDVI Analysis</button>
+    </form>
+    <a href="{{ url_for('index') }}">Back to Crop Recommendation</a>
+  </main>
+</body>
+</html>

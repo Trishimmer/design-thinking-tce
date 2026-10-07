@@ -1,11 +1,13 @@
 import matplotlib
 matplotlib.use('Agg')  # must be set before anything imports matplotlib.pyplot
+import matplotlib.pyplot as plt
 
 from flask import Flask, render_template, request
 import pandas as pd
 import pickle
 import os
 import uuid
+from datetime import date, timedelta
 from werkzeug.utils import secure_filename
 
 import satellite
@@ -53,6 +55,85 @@ def get_ndvi_assessment(ndvi_mean):
         'explanation': explanation,
     }
 
+
+def subtract_months(value, months):
+    """Subtract whole calendar months while keeping the date valid."""
+    month_index = value.year * 12 + value.month - 1 - months
+    year, month_index = divmod(month_index, 12)
+    month = month_index + 1
+    day = min(value.day, [31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
+                          31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1])
+    return date(year, month, day)
+
+
+def analyze_ndvi_trend(periods):
+    """Summarize a chronological list of successful NDVI periods."""
+    values = [period['mean'] for period in periods]
+    current = values[-1]
+    previous = values[:-1]
+
+    if previous:
+        historical_average = sum(previous) / len(previous)
+        change_percent = ((current - previous[-1]) / abs(previous[-1]) * 100) if previous[-1] else None
+        anomaly = current - historical_average
+    else:
+        historical_average = None
+        change_percent = None
+        anomaly = None
+
+    if change_percent is not None and change_percent <= -20:
+        status = 'Significant vegetation decline detected.'
+        detail = 'The latest NDVI is substantially below the previous period. Possible stress or field change should be investigated.'
+    elif change_percent is not None and change_percent <= -10:
+        status = 'Moderate vegetation decline detected.'
+        detail = 'The latest NDVI is below the previous period. Monitor the field for water, pest, disease, or harvesting effects.'
+    elif change_percent is not None and change_percent >= 10:
+        status = 'Vegetation condition is improving.'
+        detail = 'The latest NDVI has increased compared with the previous period.'
+    else:
+        status = 'Vegetation condition is relatively stable.'
+        detail = 'No substantial period-to-period NDVI change was detected.'
+
+    return {
+        'current': current,
+        'historical_average': historical_average,
+        'change_percent': change_percent,
+        'anomaly': anomaly,
+        'status': status,
+        'detail': detail,
+    }
+
+
+def create_ndvi_trend_plot(periods, out_dir='static'):
+    os.makedirs(out_dir, exist_ok=True)
+    output_path = os.path.join(out_dir, f'ndvi_trend_{uuid.uuid4().hex}.png')
+    labels = [period['label'] for period in periods]
+    values = [period['mean'] for period in periods]
+
+    fig, ax = plt.subplots(figsize=(9, 4.5))
+    ax.plot(labels, values, marker='o', linewidth=2.5, color='#185a9d')
+    ax.fill_between(range(len(values)), values, alpha=0.12, color='#43cea2')
+    if len(values) > 1:
+        historical_average = sum(values[:-1]) / len(values[:-1])
+        ax.axhline(
+            historical_average,
+            linestyle='--',
+            linewidth=1.5,
+            color='#d97706',
+            label=f'Historical average ({historical_average:.3f})',
+        )
+    ax.set_ylim(-1, 1)
+    ax.set_ylabel('Mean NDVI')
+    ax.set_xlabel('Observation period')
+    ax.grid(axis='y', alpha=0.25)
+    ax.set_title('Historical NDVI trend')
+    if len(values) > 1:
+        ax.legend(loc='best')
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=140)
+    plt.close(fig)
+    return output_path
+
 # Load the trained model and label encoder
 with open('crop_model.pkl', 'rb') as f:
     model = pickle.load(f)
@@ -84,6 +165,85 @@ def ee_status():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/ndvi_analysis', methods=['GET', 'POST'])
+def ndvi_analysis():
+    if request.method == 'GET':
+        return render_template('ndvi_analysis.html')
+
+    try:
+        lat_text = request.form.get('latitude', '').strip()
+        lon_text = request.form.get('longitude', '').strip()
+        crop_name = request.form.get('crop_name', '').strip()
+        errors = []
+
+        try:
+            latitude = float(lat_text)
+            longitude = float(lon_text)
+        except ValueError:
+            errors.append('Latitude and longitude must be numeric values.')
+            latitude = longitude = None
+
+        if latitude is not None and not -90 <= latitude <= 90:
+            errors.append('Latitude must be between -90 and 90.')
+        if longitude is not None and not -180 <= longitude <= 180:
+            errors.append('Longitude must be between -180 and 180.')
+        if errors:
+            return render_template('error.html', errors=errors), 400
+
+        today = date.today()
+        periods = []
+        unavailable = []
+
+        for months_ago in (12, 9, 6, 3, 0):
+            period_end = subtract_months(today, months_ago)
+            period_start = period_end - timedelta(days=30)
+            label = 'Current' if months_ago == 0 else f'{months_ago} months ago'
+            tif_path = None
+            try:
+                fetched = gee_utils.fetch_sentinel2_red_nir(
+                    latitude,
+                    longitude,
+                    start_date=period_start.isoformat(),
+                    end_date=period_end.isoformat(),
+                    out_dir='static',
+                )
+                tif_path = fetched['path']
+                ndvi = satellite.compute_ndvi_from_geotiff(tif_path, out_dir='static')
+                periods.append({
+                    'label': label,
+                    'date': period_end.isoformat(),
+                    'mean': ndvi['mean'],
+                    'std': ndvi['std'],
+                    'image': ndvi['image'],
+                })
+            except Exception as exc:
+                unavailable.append(f'{label}: {str(exc)}')
+            finally:
+                if tif_path:
+                    try:
+                        os.remove(tif_path)
+                    except OSError:
+                        pass
+
+        if not periods:
+            return render_template('error.html', errors=['No usable Sentinel-2 imagery was found for any requested period.'] + unavailable), 400
+
+        trend = analyze_ndvi_trend(periods)
+        trend_image = create_ndvi_trend_plot(periods)
+        return render_template(
+            'ndvi_result.html',
+            latitude=latitude,
+            longitude=longitude,
+            crop_name=crop_name,
+            periods=periods,
+            trend=trend,
+            trend_image=trend_image,
+            unavailable=unavailable,
+        )
+    except Exception as exc:
+        return render_template('error.html', errors=[f'NDVI analysis error: {str(exc)}']), 500
 
 @app.route('/predict_crop', methods=['POST'])
 def predict_crop():

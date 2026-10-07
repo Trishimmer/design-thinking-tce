@@ -4,6 +4,7 @@ import tempfile
 import requests
 import zipfile
 import json
+import uuid
 import rasterio
 
 
@@ -140,7 +141,7 @@ def fetch_sentinel2_red_nir(lat, lon, start_date=None, end_date=None, buffer_m=5
                 nir_data = nir_src.read(1)
 
             profile.update(count=2)
-            merged_path = os.path.join(out_dir, 'download_red_nir.tif')
+            merged_path = os.path.join(out_dir, f'download_red_nir_{uuid.uuid4().hex}.tif')
             with rasterio.open(merged_path, 'w', **profile) as dst:
                 dst.write(red_data, 1)
                 dst.write(nir_data, 2)

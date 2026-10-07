@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NDVI Analysis Results</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; padding: 30px 16px; font-family: "Segoe UI", sans-serif; color: #17324d; background: linear-gradient(135deg, #dff7ef, #e8f0fb); }
+    .page { max-width: 1050px; margin: 0 auto; }
+    .panel { margin-bottom: 20px; padding: 26px; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 14px 34px rgba(20,55,80,.14); }
+    h1, h2 { color: #0d2c54; }
+    h1 { margin: 0 0 8px; }
+    h2 { margin: 0 0 14px; font-size: 1.25rem; }
+    p { color: #526579; line-height: 1.55; }
+    .status { padding: 16px; border-left: 5px solid #2e9b78; background: #edf9f3; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0; }
+    .metric { padding: 14px; background: #f2f6fa; border-radius: 10px; }
+    .metric strong { display: block; margin-top: 5px; color: #185a9d; font-size: 1.35rem; }
+    img { display: block; max-width: 100%; height: auto; border-radius: 10px; }
+    .maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .map { padding: 12px; background: #f5f8fb; border-radius: 10px; }
+    .map h3 { margin: 0 0 8px; font-size: 1rem; }
+    .map p { margin: 5px 0 10px; font-size: .9rem; }
+    .warning { margin-top: 14px; color: #7c4a03; background: #fff7df; padding: 12px 14px; border-radius: 8px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+    a { display: inline-block; padding: 12px 18px; border-radius: 9px; color: white; background: #185a9d; text-decoration: none; font-weight: 700; }
+    a.secondary { color: #17324d; background: #e5edf4; }
+    @media (max-width: 650px) { .metrics { grid-template-columns: 1fr; } .panel { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="panel">
+      <h1>Historical NDVI Analysis</h1>
+      <p>Location: {{ '%.6f'|format(latitude) }}, {{ '%.6f'|format(longitude) }}{% if crop_name %} | Crop: {{ crop_name }}{% endif %}</p>
+      <div class="status">
+        <strong>{{ trend.status }}</strong>
+        <p>{{ trend.detail }}</p>
+      </div>
+      <div class="metrics">
+        <div class="metric">Current mean NDVI<strong>{{ '%.3f'|format(trend.current) }}</strong></div>
+        <div class="metric">Previous-period change<strong>{% if trend.change_percent is not none %}{{ '%.1f'|format(trend.change_percent) }}%{% else %}N/A{% endif %}</strong></div>
+        <div class="metric">Historical average<strong>{% if trend.historical_average is not none %}{{ '%.3f'|format(trend.historical_average) }}{% else %}N/A{% endif %}</strong></div>
+      </div>
+      <p>NDVI changes can reflect water stress, pests, disease, harvesting, flooding, crop maturity, or image-quality effects. They are indicators for investigation, not a definitive diagnosis.</p>
+    </section>
+
+    <section class="panel">
+      <h2>NDVI Trend</h2>
+      <img src="/{{ trend_image }}" alt="Historical mean NDVI trend chart">
+    </section>
+
+    <section class="panel">
+      <h2>NDVI Heat Maps</h2>
+      <div class="maps">
+        {% for period in periods %}
+        <article class="map">
+          <h3>{{ period.label }}</h3>
+          <p>{{ period.date }} | Mean: <strong>{{ '%.3f'|format(period.mean) }}</strong> | Std: {{ '%.3f'|format(period.std) }}</p>
+          <img src="/{{ period.image }}" alt="NDVI heat map for {{ period.label }}">
+        </article>
+        {% endfor %}
+      </div>
+      {% if unavailable %}
+      <div class="warning"><strong>Unavailable periods:</strong><br>{% for item in unavailable %}{{ item }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
+      {% endif %}
+    </section>
+
+    <div class="actions">
+      <a href="{{ url_for('ndvi_analysis') }}">Analyze Another Field</a>
+      <a class="secondary" href="{{ url_for('index') }}">Back to Crop Recommendation</a>
+    </div>
+  </main>
+</body>
+</html>
